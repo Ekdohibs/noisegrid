@@ -507,8 +507,20 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	end
 	
 	for _, oredef in ipairs(minetest.registered_ores) do
-		if oredef.ore_type == "scatter" then
-			generate_ore(minp, maxp, area, data, oredef)
+		if oredef.wherein == "default:stone" then
+			oredef.wherein = "noisegrid:stone"
+		end
+		
+		local maxy = math.min(maxp.y, oredef.height_max or 31000)
+		local miny = math.max(minp.y, oredef.height_min or -31000)
+		local mmaxp = {x = maxp.x, y = maxy, z = maxp.z}
+		local mminp = {x = minp.x, y = miny, z = minp.z}
+		if maxy - miny >= oredef.clust_size then
+			if oredef.ore_type == "scatter" then
+				generate_ore_scatter(mminp, mmaxp, area, data, oredef)
+			elseif oredef.ore_type == "sheet" then
+				generate_ore_sheet(mminp, mmaxp, area, data, oredef)
+			end
 		end
 	end
 	
@@ -520,24 +532,17 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	print ("[noisegrid] "..chugent.." ms")
 end)
 
-function generate_ore(minp, maxp, area, data, oredef)
-	if oredef.wherein == "default:stone" then
-		oredef.wherein = "noisegrid:stone"
-	end
-	
-	local maxy = math.min(maxp.y, oredef.height_max or 31000)
-	local miny = math.max(minp.y, oredef.height_min or -31000)
-	local volume = (maxp.x - minp.x + 1) * (maxy - miny + 1) * (maxp.z - minp.z + 1)
+function generate_ore_scatter(minp, maxp, area, data, oredef)
+	local volume = (maxp.x - minp.x + 1) * (maxp.y - minp.y + 1) * (maxp.z - minp.z + 1)
 	local csize = oredef.clust_size
-	if maxy - miny < csize then return end
 	local orechance = math.floor((csize ^ 3) / oredef.clust_num_ores)
 	local nclusters = math.floor(volume / oredef.clust_scarcity)
-	local content = minetest.get_content_id(oredef.ore)
+	local ore = minetest.get_content_id(oredef.ore)
 	local wherein = minetest.get_content_id(oredef.wherein)
 
 	for i = 1, nclusters do
 		local x0 = math.random(minp.x, maxp.x - csize + 1)
-		local y0 = math.random(miny, maxy - csize + 1)
+		local y0 = math.random(minp.y, maxp.y - csize + 1)
 		local z0 = math.random(minp.z, maxp.z - csize + 1)
 
 		for x1 = x0, x0 + csize - 1 do
@@ -546,11 +551,45 @@ function generate_ore(minp, maxp, area, data, oredef)
 			if math.random(orechance) == 1 then
 				local i = area:index(x1, y1, z1)
 				if data[i] == wherein then
-					data[i] = content
+					data[i] = ore
 				end
 			end
 		end
 		end
 		end
+	end
+end
+
+function generate_ore_sheet(minp, maxp, area, data, oredef)
+	local csize = oredef.clust_size
+	local np = oredef.noise_params
+	local scale = np.scale
+	local nthresh = oredef.noise_threshhold * scale
+	local y_start = math.random(minp.y, maxp.y - csize)
+	local ore = minetest.get_content_id(oredef.ore)
+	local wherein = minetest.get_content_id(oredef.wherein)
+
+	local noise = minetest.get_perlin_map(np,
+				{x = maxp.x - minp.x + 1,
+				 y = maxp.z - minp.z + 1,
+				z = maxp.z - minp.z + 1}
+		):get2dMap_flat({x = minp.x, y = minp.z})
+
+	local index = 1
+	for z = minp.z, maxp.z do
+	for x = minp.x, maxp.x do
+		local noiseval = noise[index]
+		index = index + 1
+		if noiseval >= nthresh then
+			local height = math.floor(csize / math.random(3))
+			local y0 = y_start + math.floor(noiseval)
+			for y = y0, y0 + height - 1 do
+				local i = area:index(x, y, z);
+				if data[i] == wherein then
+					data[i] = ore
+				end
+			end
+		end
+	end
 	end
 end
