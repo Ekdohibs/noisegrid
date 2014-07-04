@@ -1,4 +1,4 @@
-minetest.register_node("noisegrid:grass", {
+--[[minetest.register_node("noisegrid:grass", {
 	description = "Grass",
 	tiles = {"default_grass.png", "default_dirt.png", "default_grass.png"},
 	is_ground_content = false,
@@ -7,7 +7,8 @@ minetest.register_node("noisegrid:grass", {
 	sounds = default.node_sound_dirt_defaults({
 		footstep = {name="default_grass_footstep", gain=0.25},
 	}),
-})
+})]]
+minetest.register_alias("noisegrid:grass", "default:dirt_with_grass")
 
 minetest.register_node("noisegrid:dirt", {
 	description = "Dirt",
