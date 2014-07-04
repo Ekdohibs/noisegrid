@@ -19,7 +19,6 @@ local TCITY = 0.3 -- City size. 0.3 = 1/3 of coastal land area, 0 = 1/2 of coast
 
 local TFIS = 0.02 -- Fissure width
 local LUXCHA = 1 / 7 ^ 3 -- Luxore chance per stone node.
-local ORECHA = 1 / 5 ^ 3 -- Ore chance per stone node. 1 / n ^ 3 where n = average distance between ores
 local APPCHA = 1 / 4 ^ 2 -- Appletree maximum chance per grass node. 1 / n ^ 2 where n = minimum average distance between flora
 local FLOCHA = 1 / 13 ^ 2 -- Flowers maximum chance per grass node
 local GRACHA = 1 / 5 ^ 2 -- Grasses maximum chance per grass node
@@ -348,21 +347,6 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					and (nofis or ((flat or sea) and y >= ysurf - 16)) then
 						if math.random() < LUXCHA and stable[si] >= 1 and y > y0 then -- only stable luxore to avoid droop
 							data[vi] = c_luxore
-						elseif math.random() < ORECHA then -- ores
-							local osel = math.random(24)
-							if osel == 24 then
-								data[vi] = c_stodiam
-							elseif osel == 23 then
-								data[vi] = c_stomese
-							elseif osel == 22 then
-								data[vi] = c_stogold
-							elseif osel >= 19 then
-								data[vi] = c_stocopp
-							elseif osel >= 10 then
-								data[vi] = c_stoiron
-							else
-								data[vi] = c_stocoal
-							end
 						else
 							data[vi] = c_stone -- stone
 						end
@@ -522,6 +506,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		nixz = nixz + 81
 	end
 	
+	for _, oredef in ipairs(minetest.registered_ores) do
+		generate_ore(minp, maxp, area, data, oredef)
+	end
+	
 	vm:set_data(data)
 	vm:set_lighting({day=0, night=0})
 	vm:calc_lighting()
@@ -529,3 +517,38 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local chugent = math.ceil((os.clock() - t1) * 1000)
 	print ("[noisegrid] "..chugent.." ms")
 end)
+
+function generate_ore(minp, maxp, area, data, oredef)
+	if oredef.wherein == "default:stone" then
+		oredef.wherein = "noisegrid:stone"
+	end
+	
+	local maxy = math.min(maxp.y, oredef.height_max or 31000)
+	local miny = math.max(minp.y, oredef.height_min or -31000)
+	local volume = (maxp.x - minp.x + 1) * (maxy - miny + 1) * (maxp.z - minp.z + 1)
+	local csize = oredef.clust_size
+	if maxy - miny < csize then return end
+	local orechance = math.floor((csize ^ 3) / oredef.clust_num_ores)
+	local nclusters = math.floor(volume / oredef.clust_scarcity)
+	local content = minetest.get_content_id(oredef.ore)
+	local wherein = minetest.get_content_id(oredef.wherein)
+
+	for i = 1, nclusters do
+		local x0 = math.random(minp.x, maxp.x - csize + 1)
+		local y0 = math.random(miny, maxy - csize + 1)
+		local z0 = math.random(minp.z, maxp.z - csize + 1)
+
+		for x1 = x0, x0 + csize - 1 do
+		for y1 = y0, y0 + csize - 1 do
+		for z1 = z0, z0 + csize - 1 do
+			if math.random(orechance) == 1 then
+				local i = area:index(x1, y1, z1)
+				if data[i] == wherein then
+					data[i] = content
+				end
+			end
+		end
+		end
+		end
+	end
+end
