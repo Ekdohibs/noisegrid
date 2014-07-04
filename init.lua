@@ -507,7 +507,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	end
 	
 	for _, oredef in ipairs(minetest.registered_ores) do
-		generate_ore(minp, maxp, area, data, oredef)
+		if oredef.ore_type == "scatter" then
+			generate_ore(minp, maxp, area, data, oredef)
+		end
 	end
 	
 	vm:set_data(data)
